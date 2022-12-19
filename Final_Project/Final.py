@@ -14,47 +14,149 @@ level = LdtkLayeredLevel.from_file(
 level.render(window,scale=2,debug_entities=True)
 
 class WrapSprite(Sprite):
-    def on_update(self, dt):
-        if self.y >= window.height +self.y*0.5:
-            self.y = 0-self.y*0.5
-        elif self.y <= 0-self.y*0.5:
-            self.y = window.height +self.y*0.5
-
-class Moveable_Wall(WrapSprite):
+    def wrap(self):
+        if self.y == window.height:
+            self.y = 0
+        elif self.y == 0:
+            self.y = window.height
+class Moveable_Wall(Sprite):
     pass
-
 class Player1(WrapSprite):
     def on_create(self):
-        self.image = "P1"
         self.keep_hold = 0
+        self.holding = False
+        self.layer = 0
+        self.scale = 0.01
         self.bullet = 0
         self.get_SP = 0
         self.SP = False
         self.rotation_mode = RotationMode.MIRROR
-        self.speed = 5
+    def drop_power(self):
+        if p2.holding == True:
+            power.random()
+            p2.holding = False
+            self.holding = False
+    def set_key(self,up,down,left,right,shoot):
+        self.up_key = up
+        self.down_key = down
+        self.left_key = left
+        self.right_key = right
+        self.shoot_key = shoot
+    def player_collide(self):
+        for t in self.tags:
+            if t == "p1":       
+                if self.is_touching_any_sprite_with_tag("p2"):
+                    p2.y+=10
+                    self.drop_power()
+            if t == "p2":       
+                if self.is_touching_any_sprite_with_tag("p1"):
+                    p1.y+=10
+                    self.drop_power()
+    def shoot(self):
+        if self.bullet >= 0:
+            self.bullet -= 1
+            my_bullet = window.create_sprite(Bullet_Shooting)
+            my_bullet.position = self.position
+            my_bullet.rotation = self.rotation
+            #add tag for bullet
     def on_update(self, dt):
+        self.wrap()
         self.get_SP += 0.000000001
-        if window.is_key_pressed(KeyCode.W):
-            self.move_forward(self.speed)
-        elif window.is_key_pressed(KeyCode.S):
-            self.move_forward(self.speed)
-        if window.is_key_pressed(KeyCode.A):
-            self.rotation -= 15
-        if window.is_key_pressed(KeyCode.D):
-            self.rotation += 15
+        if window.is_key_pressed(self.up_key):
+            self.y+=10
+            if self.is_touching_any_sprite_with_tag("ldtk_wall"):
+                self.y -= 10
+                self.drop_power()
+            self.player_collide()
+        elif window.is_key_pressed(self.down_key):
+            self.y -= 10
+            if self.is_touching_any_sprite_with_tag("ldtk_wall"):
+                self.y += 10
+                self.drop_power()
+            self.player_collide()
+        if window.is_key_pressed(self.left_key):
+            self.x -= 10
+            self.rotation = 180
+            if self.is_touching_any_sprite_with_tag("ldtk_wall"):
+                self.x += 10
+                self.drop_power()
+            self.player_collide()
+        if window.is_key_pressed(self.right_key):
+            self.x += 10
+            self.rotation = 0
+            if self.is_touching_any_sprite_with_tag("ldtk_wall"):
+                self.x -= 10
+                self.drop_power()
+            self.player_collide()
+        if self.keep_hold >= 50:
+            window.close()       
 
-class Player2(WrapSprite):
-    def on_create(self):
-        self.image = "P2"
-        self.keep_hold = 0
-        self.bullet = 0
-        self.get_SP = 0
-        self.SP = False
-        self.rotation_mode = RotationMode.MIRROR
 class Target(Sprite):
-    pass
-class Bullet(Sprite):
-    pass
+    def on_create(self):
+        self.image = "target.png"
+        self.goto_random_position()
+        self.time = 0
+        self.layer = 0
+        self.scale = 0.05
+    def on_update(self, dt):
+        if self.is_touching_any_sprite_with_tag("p1"):
+            p1.holding=True
+        if self.is_touching_any_sprite_with_tag("p2"):
+            p2.holding=True           
+        if p1.holding ==True:
+            p1.keep_hold+=dt
+            self.position = p1.position
+            self.layer =1
+        if p2.holding ==True:
+            p2.keep_hold+=dt
+            self.position = p2.position
+            self.layer =1
+    def random(self):
+        self.goto_random_position_in_region(32+64,32+64,1024-64,512-64)
+class Bullet_Collection(Sprite):
+    def on_create(self):
+        self.image = "BULLET.png"
+        self.scale = 0.05
+        self.goto_random_position()
+        self.time =0
+    def on_update(self, dt):
+        self.time+=dt
+        if self.time>=5:
+            self.delete()
+        if self.is_touching_any_sprite_with_tag("p1"):
+            p1.bullet += 10
+            print(p1.bullet)
+            print(p2.bullet)
+            self.delete()
+        if self.is_touching_any_sprite_with_tag("p2"):
+            p2.bullet += 10
+            print(p1.bullet)
+            print(p2.bullet)
+            self.delete()
+class Bullet_Shooting(Sprite):
+    def on_create(self):
+        self.image = "BULLET.png"
+        self.scale = 0.01
+        self.time = 0
+    def on_update(self,dt):
+        self.time += dt
+        self.move_forward(10)
+        if self.is_touching_any_sprite_with_tag("ldtk_wall"):
+            self.delete()
+        if self.time >= 2:
+            self.delete()
+def Spawn_Bullet():
+    window.create_sprite(Bullet_Collection)
+Scheduler.update(Spawn_Bullet,5)
 
-window.create_sprite(Player1,x =64,y = 160)
+power = window.create_sprite(Target)
+p1 = window.create_sprite(Player1,x =64,y = 160)
+p1.image = "P1.png"
+p1.add_tag("p1")
+p1.set_key(KeyCode.W,KeyCode.S,KeyCode.A,KeyCode.D,KeyCode.SPACE)
+p2 = window.create_sprite(Player1,x =960,y = 380)
+p2.image = "P2.png"
+p2.rotation = 180
+p2.add_tag("p2")
+p2.set_key(KeyCode.UP,KeyCode.DOWN,KeyCode.LEFT,KeyCode.RIGHT,KeyCode.NUM_0)
 window.run()
