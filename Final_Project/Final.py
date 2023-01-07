@@ -206,7 +206,7 @@ class Player(WrapSprite):
         if window.is_key_down(self.shoot_key) or self.button == 1:
             self.shoot()
             self.button = None
-        if self.keep_hold >= 10:
+        if self.keep_hold >= 60:
             print("one win")
             win_l = window.create_label(Win_Label)
             win_l.position = self.position
